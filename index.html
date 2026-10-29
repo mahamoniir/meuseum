@@ -177,7 +177,7 @@ function addT(p){const t=Object.assign({w:1.2,d:.8,h:.75,rot:0,x:2+1.5*T.length,
  t.mesh=new THREE.Mesh(boxG,mt(0x7a6a58));t.mesh.castShadow=t.mesh.receiveShadow=true;OWN.set(t.mesh,{k:'t',ref:t});S.add(t.mesh);T.push(t);selT=t;kind='t'}
 function delSel(){if(kind==='m'&&selM)delM(selM);else if(kind==='t'&&selT)delT(selT);else if(kind==='l'&&selL)delL(selL);else if(kind==='v')G.vis=false;ui();upd()}
 const tabs=(arr,cur,set,k)=>{const d=el('div','');d.className='tb';arr.forEach(x=>{const b=el('button',x.name,()=>{set(x);kind=k;ui(k);upd()});if(x===cur&&kind===k)b.className='on';d.append(b)});return d};
-const addF=f=>[...f].forEach(x=>/\.json$/i.test(x.name)?x.text().then(t=>loadProj(t)):x.arrayBuffer().then(b=>addModel(b,x.name.replace(/\.(glb|gltf)$/i,''))));
+const addF=f=>[...f].forEach(x=>/\.json$/i.test(x.name)?x.text().then(t=>loadProj(t)):x.arrayBuffer().then(b=>{const n=x.name.replace(/\.(glb|gltf)$/i,'');libPut(n,b);addModel(b,n)}));
 function ui(k){const P=$('#pn');P.innerHTML='';
  INS=[];let d=inspUI();P.append(d);d=sec('الخامات والتكستشر');d.id='sx';matUI(d);P.append(d);d=sec('الموديلات');d.id='sm';const tb=tabs(M,selM,x=>selM=x,'m');
  const inp=el('input','');inp.type='file';inp.accept='.glb,.gltf';inp.multiple=true;inp.hidden=true;inp.onchange=()=>addF(inp.files);
@@ -207,6 +207,9 @@ function ui(k){const P=$('#pn');P.innerHTML='';
  const st=el('select','<option value="0">ظل PCF (حواف قابلة للتنعيم)</option><option value="1">ظل PCF ناعم</option><option value="2">ظل VSM (الأنعم)</option>');st.onchange=()=>{R.shadowMap.type=[THREE.PCFShadowMap,THREE.PCFSoftShadowMap,THREE.VSMShadowMap][+st.value];resetSh()};
  const rs=el('select','<option>1024</option><option selected>2048</option><option>4096</option>');rs.onchange=()=>{Ls.forEach(o=>o.L.shadow.mapSize.set(+rs.value,+rs.value));resetSh()};
  const bm=el('label','<input type="checkbox"> إظهار الأشعة');bm.firstChild.checked=G.beams;bm.firstChild.onchange=e=>{G.beams=e.target.checked;upd()};d.append(st,el('div','دقة الظل '),rs,bm);P.append(d);
+ d=sec('مكتبة الموديلات (للإضافة داخل VR)');d.id='sb';{const r=el('div','');r.className='rw';r.append(el('button','حفظ موديلات المشهد في المكتبة',()=>{M.forEach(m=>libPut(m.name,m.buf));vT('تم الحفظ في المكتبة')}));d.append(r);
+ libCache.forEach(l=>{const q=el('div','');q.className='rw';q.append(el('span',l.name+' · '+(l.size/1048576).toFixed(1)+' MB'),el('button','إضافة للمشهد',()=>libAdd(l.id)),el('button','حذف',()=>libRm(l.id)));d.append(q)});
+ const n=el('div','أي ملف GLB ترفعينه من الصفحة يُحفظ تلقائيًا هنا، وتقدري تضيفيه من داخل VR من تبويب «العناصر».');n.className='ro';d.append(n)}P.append(d);
  d=sec('المشروع: حفظ محلي واستيراد');d.id='sp';{const r1=el('div','');r1.className='rw';const pf=el('input','');pf.type='file';pf.accept='.json,.glb,.gltf';pf.multiple=true;pf.hidden=true;pf.onchange=()=>{addF(pf.files);pf.value=''};
  r1.append(el('button','💾 حفظ في المتصفح',()=>pjDo(false)),el('button','حفظ كمشروع جديد',()=>pjDo(true)),el('button','تصدير ملف المشروع',()=>save('statue-lab-project.json',new TextEncoder().encode(JSON.stringify(projData())))),el('button','استيراد مشروع / مشهد',()=>pf.click()),pf);d.append(r1);
  pjCache.forEach(p=>{const r=el('div','');r.className='rw';r.append(el('span',p.name+(p.id===curId?' ✓':'')),el('button','فتح',()=>pjOpen(p.id)),el('button','حذف',()=>pjRm(p.id)));d.append(r)});
@@ -237,8 +240,8 @@ async function loadProj(txt,id,nm){try{const d=typeof txt==='string'?JSON.parse(
  (d.R||[]).forEach((q,i)=>{const r=RM[i];if(!r)return;r.mesh.visible=q.vis;r.mesh.position.fromArray(q.p);r.mesh.rotation.set(q.q[0],q.q[1],q.q[2]);r.mesh.scale.fromArray(q.s);matLoad(r.mesh.material,q.mt)});
  selM=M[0]||null;selT=T[0]||null;selL=Ls[0]||null;selR=RM[1];kind=M.length?'m':T.length?'t':'f';curId=id||null;curName=nm||'';resetSh();vTab=0;vScroll=0;msg('');ui();upd();vT('تم فتح المشروع ✓')}
  catch(e){msg('تعذّر فتح المشروع: '+(e.message||e))}}
-const dbo=()=>new Promise((ok,no)=>{const r=indexedDB.open('statuelab',1);r.onupgradeneeded=()=>{r.result.createObjectStore('meta',{keyPath:'id'});r.result.createObjectStore('data',{keyPath:'id'})};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
-const dbx=async(mode,f)=>{const db=await dbo();return new Promise((ok,no)=>{const tx=db.transaction(['meta','data'],mode);let q;try{q=f(tx.objectStore('meta'),tx.objectStore('data'))}catch(e){no(e);return}tx.oncomplete=()=>ok(q&&q.result);tx.onerror=tx.onabort=()=>no(tx.error)})};
+const dbo=()=>new Promise((ok,no)=>{const r=indexedDB.open('statuelab',2);r.onupgradeneeded=()=>{const db=r.result;['meta','data','libm','libd'].forEach(n=>db.objectStoreNames.contains(n)||db.createObjectStore(n,{keyPath:'id'}))};r.onsuccess=()=>ok(r.result);r.onerror=()=>no(r.error)});
+const dbx=async(mode,f,nm)=>{const db=await dbo(),ns=nm||['meta','data'];return new Promise((ok,no)=>{const tx=db.transaction(ns,mode);let q;try{q=f(...ns.map(n=>tx.objectStore(n)))}catch(e){no(e);return}tx.oncomplete=()=>ok(q&&q.result);tx.onerror=tx.onabort=()=>no(tx.error)})};
 async function pjSave(asNew,auto){const id=auto?1:(!asNew&&curId)||Date.now(),nm=auto?'حفظ تلقائي':(!asNew&&curName)||('مشروع '+new Date().toLocaleString('ar-EG')),js=JSON.stringify(projData());
  await dbx('readwrite',(m,d)=>{m.put({id,name:nm,t:Date.now()});d.put({id,js})});if(!auto){curId=id;curName=nm}return nm}
 const pjList=()=>dbx('readonly',m=>m.getAll()).then(a=>(a||[]).sort((x,y)=>y.t-x.t));
@@ -246,6 +249,13 @@ const pjRefresh=async()=>{try{pjCache=await pjList()}catch(_){pjCache=[]}vD=1;ui
 const pjDo=async nw=>{try{const n=await pjSave(nw);await pjRefresh();msg('');vT('تم الحفظ: '+n)}catch(e){vT('فشل الحفظ');msg('فشل الحفظ: '+(e.message||e))}};
 const pjOpen=async id=>{try{const r=await dbx('readonly',(m,d)=>d.get(id));await loadProj(r.js,id,(pjCache.find(p=>p.id===id)||{}).name);await pjRefresh()}catch(e){vT('تعذّر الفتح')}};
 const pjRm=async id=>{try{await dbx('readwrite',(m,d)=>{m.delete(id);d.delete(id)});if(curId===id)curId=null;await pjRefresh()}catch(e){}};
+
+/* ===== Model library (works inside VR) ===== */
+let libCache=[];const LB=['libm','libd'];
+const libRefresh=async()=>{try{libCache=((await dbx('readonly',m=>m.getAll(),['libm']))||[]).sort((a,b)=>b.t-a.t)}catch(_){libCache=[]}vD=1;ui()};
+async function libPut(name,buf){try{await dbx('readwrite',(m,d)=>{m.put({id:name,name,t:Date.now(),size:buf.byteLength});d.put({id:name,buf})},LB);libRefresh()}catch(e){console.error(e)}}
+async function libAdd(id){try{vT('جارٍ تحميل الموديل…');const r=await dbx('readonly',(m,d)=>d.get(id),LB);addModel(r.buf.slice(0),id,m=>{if(m){vTab=1;vScroll=0;vT('أُضيف: '+id)}else vT('تعذّر تحميل الموديل')})}catch(e){vT('تعذّر التحميل')}}
+const libRm=async id=>{try{await dbx('readwrite',(m,d)=>{m.delete(id);d.delete(id)},LB);libRefresh()}catch(_){}};
 
 /* ===== WebXR / Meta Quest VR ===== */
 let xrOn=false,camSave=null,vWait=0,vTab=0,vScroll=0,vMax=0,vHit=[],vHk='',vDr=null,vToast='',vTT=0,vLast=0;
@@ -270,6 +280,7 @@ const SW=['#f2eee8','#8a847b','#2b2926','#c9b79c','#a85a3c','#5a3d2b','#1a1a1a',
 function vRows(){const o=[],H=t=>o.push({h:t}),sl=q=>o.push([q]);
  if(vTab===0){
   H('الموديلات');M.length?grid(M.map(m=>({text:m.name,on:kind==='m'&&selM===m,fn:()=>vSel('m',()=>selM=m)})),2).forEach(r=>o.push(r)):o.push([{text:'لا توجد موديلات — أضيفيها من الصفحة قبل VR'}]);
+  H('مكتبة الموديلات — اضغطي للإضافة');libCache.length?grid(libCache.map(l=>({text:'+ '+l.name,fn:()=>libAdd(l.id)})),2).forEach(r=>o.push(r)):o.push([{text:'ارفعي GLB من الصفحة قبل VR وستظهر هنا'}]);
   H('الترابيزات');grid(T.map(t=>({text:t.name,on:kind==='t'&&selT===t,fn:()=>vSel('t',()=>selT=t)})),2).forEach(r=>o.push(r));o.push([{text:'+ ترابيزة',fn:()=>{addT();kind='t';ui();upd();vT('أُضيفت ترابيزة')}}]);
   H('الكشافات');grid(Ls.map(l=>({text:l.name,on:kind==='l'&&selL===l,fn:()=>vSel('l',()=>selL=l)})),2).forEach(r=>o.push(r));
   o.push([{text:'+ كشاف',fn:()=>{addLight({m:selM});kind='l';ui();upd();vT('أُضيف كشاف')}},{text:'Key/Fill/Rim',fn:()=>{preset();kind='l';ui();upd()}}]);
@@ -372,5 +383,5 @@ addEventListener('pointerup',e=>{if(dr){const k=dr.k;dr=null;oc.enabled=true;ui(
 addEventListener('keydown',e=>{const g=e.target;if(e.key!=='Delete'||g.tagName==='SELECT'||(g.tagName==='INPUT'&&!/range|checkbox|file/.test(g.type)))return;e.preventDefault();delSel()});
 ui();const s=$('#glb').textContent.trim();if(s){const u=Uint8Array.from(atob(s),c=>c.charCodeAt(0));addModel(u.buffer,'زوجة ناخت مين')}else msg('اسحب ملف GLB إلى هنا أو اضغط «+ إضافة GLB»');
 
-pjRefresh();setInterval(()=>{if(pjD&&M.length&&!dr&&!vDr){pjD=0;pjSave(false,true).catch(()=>{})}},45000);
+pjRefresh();libRefresh();setInterval(()=>{if(pjD&&M.length&&!dr&&!vDr){pjD=0;pjSave(false,true).catch(()=>{})}},45000);
 </script></body></html>
